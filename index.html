@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{color-scheme:light dark;--p:#0e5774;--pt:#fff;--bg:#f3f8fa;--s:#fff;--bd:#dbe6eb;--tx:#10303c;--mu:#58727e;--soft:#e6f0f4;--ok:#16825a;--okt:#fff;--bad:#c0392b;--r:16px}
-@media(prefers-color-scheme:dark){:root{--p:#4fa8c7;--pt:#06222d;--bg:#0b1a21;--s:#12262f;--bd:#23404c;--tx:#e6f1f5;--mu:#93acb7;--soft:#1a3743;--ok:#3fbf8c;--okt:#04251a;--bad:#ff8a7a}}
+:root{color-scheme:light dark;--p:#0e5774;--pt:#fff;--bg:#f3f8fa;--s:#fff;--bd:#dbe6eb;--tx:#10303c;--mu:#58727e;--soft:#e6f0f4;--ok:#16825a;--okt:#fff;--bad:#c0392b;--badt:#fff;--r:16px}
+@media(prefers-color-scheme:dark){:root{--p:#4fa8c7;--pt:#06222d;--bg:#0b1a21;--s:#12262f;--bd:#23404c;--tx:#e6f1f5;--mu:#93acb7;--soft:#1a3743;--ok:#3fbf8c;--okt:#04251a;--bad:#ff8a7a;--badt:#2a0a06}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;font:16px/1.45 Figtree,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--tx);background:var(--bg);font-variant-numeric:tabular-nums}
 button{font:inherit;color:inherit;cursor:pointer}
@@ -71,9 +71,14 @@ h4 small{font-weight:400}
 .t{min-height:52px;border-radius:14px;border:1.5px solid var(--bd);background:var(--s);font-weight:600;transition:background .15s}
 .t[aria-pressed=true]{background:var(--ok);border-color:var(--ok);color:var(--okt)}
 .t[aria-pressed=true]::before{content:"✓ "}
+.t[data-s="1"]{background:var(--ok);border-color:var(--ok);color:var(--okt)}
+.t[data-s="1"]::before{content:"✓ "}
+.t[data-s="-1"]{background:var(--bad);border-color:var(--bad);color:var(--badt)}
+.t[data-s="-1"]::before{content:"✗ "}
+.hint{margin:-2px 0 8px;font-size:13px;color:var(--mu)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .two label,.rm{display:block;color:var(--mu);font-size:13px}
-.two input,.rm textarea{margin-top:4px;font-size:17px}
+.two input,.rm input,.rm textarea{margin-top:4px;font-size:17px}
 .ft{position:sticky;bottom:0;background:var(--s);display:grid;grid-template-columns:auto 1fr 1.3fr;gap:10px;align-items:center;padding:12px 0 calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--bd);margin-top:16px}
 .sum{line-height:1.1}.sum b{font-size:30px;color:var(--p)}
 #err{color:var(--bad);margin:8px 0 0;min-height:1.3em}
@@ -162,8 +167,8 @@ async function load(){
 function calc(q,sp){
   const obj=q.slice(0,10).reduce((a,b)=>a+(b||0),0);
   const d=Math.floor((sp||0)/4);
-  const q11=Math.max(0,(q[10]||0)-d);
-  return{obj:r2(obj),q11:r2(q11),d:d,total:r2(obj+q11)};
+  const q11=q[10]||0;
+  return{obj:r2(obj),q11:r2(q11),d:d,total:r2(obj+q11-d)};
 }
 
 function visible(){
@@ -186,7 +191,7 @@ function renderTop(){
   const T=n?R.filter(x=>x.rk<=n):R;
   $('#tstat').textContent=T.length+' of '+L.length+' evaluated. Equal totals share a rank.';
   $('#top').innerHTML=T.map(x=>{const c=calc(x.r.q,x.r.spell);
-    return'<div class="tc'+(x.rk<=3?' top':'')+'"><span class="rk">'+x.rk+'</span><div><span class="nm">'+esc(x.r.name)+'</span><small>Roll '+esc(x.r.roll)+', batch '+esc(x.r.batch)+'</small><div class="bk"><span>Q1–10: '+c.obj+' of 10</span><span>Q11: '+c.q11+' of 15</span></div></div><div class="sc">'+x.r.total+'<small>of 25</small></div></div>'}).join('')||'<p class="mut">No evaluated candidates yet.</p>';
+    return'<div class="tc'+(x.rk<=3?' top':'')+'"><span class="rk">'+x.rk+'</span><div><span class="nm">'+esc(x.r.name)+'</span><small>Roll '+esc(x.r.roll)+', batch '+esc(x.r.batch)+'</small><div class="bk"><span>Q1–10: '+c.obj+' of 10</span><span>Q11: '+c.q11+' of 15</span>'+(c.d?'<span>Spelling: −'+c.d+'</span>':'')+'</div></div><div class="sc">'+x.r.total+'<small>of 25</small></div></div>'}).join('')||'<p class="mut">No evaluated candidates yet.</p>';
 }
 
 function render(){
@@ -206,16 +211,17 @@ function show(v){
 function openForm(roll){
   cur=rows.find(r=>r.roll==roll);if(!cur)return;
   const n1=Math.round((cur.q[0]||0)*4);
-  S={a:[0,1,2,3].map(i=>i<n1),m:[1,2,3,4,5,6,7,8,9].map(i=>(cur.q[i]||0)>=1),q11:cur.q[10]==null?'':cur.q[10],sp:cur.spell||0,rem:cur.remarks||''};
+  S={a:[0,1,2,3].map(i=>i<n1),m:[1,2,3,4,5,6,7,8,9].map(i=>{const v=cur.q[i]||0;return v>=1?1:v<=-1?-1:0}),q11:cur.q[10]==null?'':cur.q[10],sp:cur.spell||0,rem:cur.remarks||''};
   $('#sheet').innerHTML=
    '<div class="grab"></div><div class="hd"><div><span class="nm">'+esc(cur.name)+'</span><small>Roll '+esc(cur.roll)+', batch '+esc(cur.batch)+'</small></div><button class="x" id="x" aria-label="Close">✕</button></div>'+
    '<h4>Q1 spelling pairs <small>¼ mark per correct pair, <span id="s1">0</span> of 1</small></h4><div class="tg">'+
    [0,1,2,3].map(i=>'<button class="t" data-a="'+i+'" aria-pressed="'+S.a[i]+'">Pair '+(i+1)+'</button>').join('')+'</div>'+
-   '<h4>Q2 to Q10 <small>tap each correct answer, <span id="s2">0</span> of 9</small></h4><div class="tg">'+
-   S.m.map((v,i)=>'<button class="t" data-m="'+i+'" aria-pressed="'+v+'">Q'+(i+2)+'</button>').join('')+'</div>'+
+   '<h4>Q2 to Q10 <small id="s2"></small></h4><p class="hint">Tap once for correct (+1), twice for wrong (−1), three times to clear.</p><div class="tg">'+
+   S.m.map((v,i)=>'<button class="t" data-m="'+i+'" data-s="'+v+'" aria-label="Q'+(i+2)+'">Q'+(i+2)+'</button>').join('')+'</div>'+
    '<h4>Q11 application letter <small>out of 15</small></h4>'+
-   '<div class="two"><label>Marks<input id="q11" type="number" min="0" max="15" step="0.5" inputmode="decimal" value="'+S.q11+'"></label>'+
-   '<label>Spelling errors<input id="sp" type="number" min="0" step="1" inputmode="numeric" value="'+S.sp+'"></label></div>'+
+   '<label class="rm">Marks<input id="q11" type="number" min="0" max="15" step="0.5" inputmode="decimal" value="'+S.q11+'"></label>'+
+   '<h4>Spelling errors <small>whole paper, 1 mark off for every 4</small></h4>'+
+   '<label class="rm">Number of spelling errors<input id="sp" type="number" min="0" step="1" inputmode="numeric" value="'+S.sp+'"></label>'+
    '<p id="ded" class="mut"></p>'+
    '<label class="rm">Remarks<textarea id="rem" rows="2">'+esc(S.rem)+'</textarea></label><p id="err"></p>'+
    '<div class="ft"><div class="sum"><b id="tt">0</b><small> of 25</small></div><button class="btn" id="sv">Save</button><button class="btn p" id="sn">Save and next</button></div>';
@@ -225,12 +231,12 @@ function closeForm(){$('#ov').classList.remove('on');cur=null}
 
 function qs(){
   const q11=S.q11===''?0:Math.min(15,Math.max(0,S.q11));
-  return[S.a.filter(Boolean).length/4].concat(S.m.map(v=>v?1:0),[q11]);
+  return[S.a.filter(Boolean).length/4].concat(S.m,[q11]);
 }
 function upd(){
   const q=qs(),c=calc(q,S.sp);
-  $('#s1').textContent=q[0];$('#s2').textContent=S.m.filter(Boolean).length;
-  $('#ded').textContent=c.d?('Spelling errors cost '+c.d+' mark'+(c.d>1?'s':'')+' (1 per 4 errors). Q11 counts as '+c.q11+'.'):'1 mark is deducted for every 4 spelling errors.';
+  $('#s1').textContent=q[0];$('#s2').textContent=S.m.filter(v=>v>0).length+' right, '+S.m.filter(v=>v<0).length+' wrong';
+  $('#ded').textContent=c.d?('Spelling errors take '+c.d+' mark'+(c.d>1?'s':'')+' off the total (1 per 4 errors).'):'No deduction yet. 1 mark comes off for every 4 spelling errors.';
   $('#tt').textContent=c.total;
 }
 
@@ -260,10 +266,9 @@ $('#list').addEventListener('click',e=>{const r=e.target.closest('.row');if(r)op
 $('#sheet').addEventListener('click',e=>{
   const t=e.target.closest('button');if(!t)return;
   if(t.id=='x')return closeForm();
-  if(t.dataset.a!=null||t.dataset.m!=null){
-    const arr=t.dataset.a!=null?S.a:S.m,i=+(t.dataset.a!=null?t.dataset.a:t.dataset.m);
-    arr[i]=!arr[i];t.setAttribute('aria-pressed',arr[i]);upd();
-  }else if(t.id=='sv')save(false);
+  if(t.dataset.a!=null){const i=+t.dataset.a;S.a[i]=!S.a[i];t.setAttribute('aria-pressed',S.a[i]);upd()}
+  else if(t.dataset.m!=null){const i=+t.dataset.m,v=S.m[i];S.m[i]=v==0?1:v==1?-1:0;t.dataset.s=S.m[i];upd()}
+  else if(t.id=='sv')save(false);
   else if(t.id=='sn')save(true);
 });
 $('#sheet').addEventListener('input',e=>{
